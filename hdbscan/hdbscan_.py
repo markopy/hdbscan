@@ -3,6 +3,7 @@
 HDBSCAN: Hierarchical Density-Based Spatial Clustering
          of Applications with Noise
 """
+import time
 
 import numpy as np
 
@@ -53,15 +54,24 @@ def _tree_to_labels(X, single_linkage_tree, min_cluster_size=10,
     """Converts a pretrained tree and cluster size into a
     set of labels and probabilities.
     """
+
+    start_time = time.perf_counter()
     condensed_tree = condense_tree(single_linkage_tree,
                                    min_cluster_size)
+    print('condense_tree time:', time.perf_counter() - start_time)
+
+    start_time = time.perf_counter()
     stability_dict = compute_stability(condensed_tree)
+    print('compute_stability time:', time.perf_counter() - start_time)
+
+    start_time = time.perf_counter()
     labels, probabilities, stabilities = get_clusters(condensed_tree,
                                                       stability_dict,
                                                       cluster_selection_method,
                                                       allow_single_cluster,
                                                       match_reference_implementation,
 													  cluster_selection_epsilon)
+    print('get_clusters time:', time.perf_counter() - start_time)
 
     return (labels, probabilities, stabilities, condensed_tree,
             single_linkage_tree)
@@ -541,6 +551,9 @@ def hdbscan(X, min_cluster_size=5, min_samples=None, alpha=1.0, cluster_selectio
     if min_samples == 0:
         min_samples = 1
 
+
+    start_time = time.perf_counter()
+
     if algorithm != 'best':
         if metric != 'precomputed' and issparse(X) and metric != 'generic':
             raise ValueError("Sparse data matrices only support algorithm 'generic'.")
@@ -627,6 +640,10 @@ def hdbscan(X, min_cluster_size=5, min_samples=None, alpha=1.0, cluster_selectio
                                                gen_min_span_tree,
                                                core_dist_n_jobs, **kwargs)
 
+
+    print('algo time:', time.perf_counter() - start_time)
+
+    start_time = time.perf_counter()
     return _tree_to_labels(X,
                            single_linkage_tree,
                            min_cluster_size,
@@ -635,6 +652,7 @@ def hdbscan(X, min_cluster_size=5, min_samples=None, alpha=1.0, cluster_selectio
                            match_reference_implementation,
 						   cluster_selection_epsilon) + \
             (result_min_span_tree,)
+    print('_tree_to_labels time:', time.perf_counter() - start_time)
 
 
 # Inherits from sklearn
