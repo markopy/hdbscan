@@ -614,12 +614,22 @@ cpdef np.ndarray get_stability_scores(np.ndarray labels, set clusters,
     return result
 
 
-cdef np.intp_t recurse_leaf_dfs(np.ndarray[np.intp_t, ndim=1, mode='c'] leaves,
-                                np.intp_t leaves_count,
-                                np.ndarray[tree_rec_t, ndim=1, mode='c'] cluster_tree,
-                                np.intp_t root,
-                                np.intp_t current_node,
-                                np.double_t cluster_selection_epsilon):
+cpdef list recurse_leaf_dfs(np.ndarray cluster_tree, np.intp_t current_node):
+    children = cluster_tree[cluster_tree['parent'] == current_node]['child']
+    if len(children) == 0:
+        return [current_node,]
+    else:
+        return sum([recurse_leaf_dfs(cluster_tree, child) for child in children], [])
+
+
+cdef np.intp_t _recurse_leaf_dfs(np.ndarray[np.intp_t, ndim=1, mode='c'] leaves,
+                                 np.intp_t leaves_count,
+                                 np.ndarray[tree_rec_t, ndim=1, mode='c'] cluster_tree,
+                                 np.intp_t root,
+                                 np.intp_t current_node,
+                                 np.double_t cluster_selection_epsilon):
+    """ Optimized, internal version of recurse_leaf_dfs for use by get_cluster_tree_leaves
+    """
     cdef np.intp_t first_parent, i
     cdef np.double_t eps
 
@@ -648,8 +658,8 @@ cdef np.intp_t recurse_leaf_dfs(np.ndarray[np.intp_t, ndim=1, mode='c'] leaves,
     for i in range(first_parent, cluster_tree.shape[0]):
         if cluster_tree[i].parent != current_node:
             break
-        leaves_count = recurse_leaf_dfs(leaves, leaves_count, cluster_tree, root, cluster_tree[i].child,
-                                        cluster_selection_epsilon)
+        leaves_count = _recurse_leaf_dfs(leaves, leaves_count, cluster_tree, root, cluster_tree[i].child,
+                                         cluster_selection_epsilon)
 
     return leaves_count
 
@@ -664,7 +674,7 @@ cpdef list get_cluster_tree_leaves(np.ndarray cluster_tree, np.double_t cluster_
 
     # There can never be more leaves than tree entries
     leaves = np.empty(cluster_tree.shape[0], dtype=np.intp)
-    leaves_count = recurse_leaf_dfs(leaves, 0, cluster_tree, root, root, cluster_selection_epsilon)
+    leaves_count = _recurse_leaf_dfs(leaves, 0, cluster_tree, root, root, cluster_selection_epsilon)
     return leaves[:leaves_count].tolist()
 
 
